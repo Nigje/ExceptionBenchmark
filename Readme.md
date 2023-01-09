@@ -413,9 +413,7 @@ BenchmarkDotNet=v0.13.2, OS=ubuntu 22.04
 
 In this benchmark, the latency of reading from I/O is ignored and the average execution time for all of endpoints is 40,714 ns. The following chart shows more details. So, using status code instead of throwing exceptions doesn't have too much benefit on the usual web API, but throwing exceptions increases the speed of development. There is some best practice regarding the exceptions that are explained in another document.
 
-![ColumnChart_API Call](.\Docs\ColumnChart_API Call.svg)
-
-
+<img src=".\Docs\ColumnChart_API_Call.svg" alt="ColumnChart_API_Call" style="zoom:150%;" />
 
 ## BenchmarkDotNet configuration
 
