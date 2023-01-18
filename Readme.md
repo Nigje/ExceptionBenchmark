@@ -1,9 +1,10 @@
 # Exception
 
-An *exception* is an event, which occurs during the execution of a program, that disrupts the normal flow of the program's instructions. When an error occurs within a method, the method creates an object and hands it off to the runtime system ([Oracle](https://docs.oracle.com/javase/tutorial/essential/exceptions/definition.html#:~:text=Definition%3A%20An%20exception%20is%20an,off%20to%20the%20runtime%20system.)). Exceptions can be very helpful to developers, but Exception's performance is also a concern. Several benchmarks can be found if you search for expenses of exceptions. The purpose of this article is to discuss three different benchmarks. The conclusions are presented in the following sections:
+An *exception* is an event, which occurs during the execution of a program, that disrupts the normal flow of the program's instructions. When an error occurs within a method, the method creates an object and hands it off to the runtime system ([Oracle](https://docs.oracle.com/javase/tutorial/essential/exceptions/definition.html#:~:text=Definition%3A%20An%20exception%20is%20an,off%20to%20the%20runtime%20system.)). Exceptions can be very helpful to developers, but Exception's performance is also a concern. The purpose of this article is to discuss three different benchmarks and then a suggestion about how to handle the exceptions. The conclusions are presented in the following sections:
 
 - Result of console application
 - Result of Web API
+- Exception Handling
 
 
 
@@ -319,7 +320,7 @@ BenchmarkDotNet=v0.13.2, OS=ubuntu 22.04
 
 <img src=".\Docs\ColumnChart_StackTrace.svg" alt="ColumnChart_StackTrace" style="zoom:150%;" />
 
-- **Return status code vs. Throw exception**: The comparison between returning status code and throwing exceptions in depth by collecting stack trace collection and only reading the exception's message has been shown in the following table. In-depth 32, the execution time by using the status code is 8613 times faster than throwing an exception by collecting the stack trace collection. It means, in In-depth 32 the execution time by using status code is 10.34 ns but when an exception occurs, by collecting stack trace collection (worst case) the execution time reaches 89,050.46 ns, which means 89,040.12 ns second or 89 µs (microseconds) or 0.000089 seconds more that really is not too much in normal applications. For real-time applications such as games, trading cores, or video render engines, these expenses are too high; but for the normal web applications, the latencies such as network or reading from I/O are greater and it is possible to ignore the exception overhead. Also, the frequency of exceptions is very important.
+- **Return status code vs. Throw exception**: The comparison between returning status code and throwing exceptions in depth by collecting stack trace collection and only reading the exception's message has been shown in the following table. In-depth 32, the execution time by using the status code is 8613 times faster than throwing an exception by collecting the stack trace collection. It means, in In-depth 32, the execution time by using status code is 10.34 ns but when an exception occurs, by collecting stack trace collection (worst case) the execution time reaches 89,050.46 ns, which means 89,040.12 ns second or 89 µs (microseconds) or 0.000089 seconds more that really is not too much in normal applications. For real-time applications such as games, trading cores, or video render engines, these expenses are too high; but for the normal web applications, the latencies such as network or reading from I/O are greater and it is possible to ignore the exception overhead. Also, the frequency of exceptions is very important (To ignore the task overhead in async methods, the comparison is between `Void_ReturnStatusCode_WithTryCatch` and `Void_Throw_WithoutStackTrace` and `Void_Throw_WithStackTrace`).
 
   |                                                     | Depth 1 | Depth 4 | Depth 32 | Depth 64 | Depth 1024 |
   | --------------------------------------------------- | ------- | ------- | -------- | -------- | ---------- |
@@ -411,7 +412,7 @@ BenchmarkDotNet=v0.13.2, OS=ubuntu 22.04
 
 #### Result of Web API
 
-In this benchmark, the I/O latency is ignored, and the average execution time is 40,714 ns for all endpoints. The following chart shows more details. Using status codes instead of throwing exceptions doesn't have much benefit on the usual web API, but throwing exceptions increases development speed. There is some best practice regarding the exceptions that are explained in another document.
+In this benchmark, the I/O latency has been ignored (but task overhead and network latency are included), and the average execution time is 40,714 ns for all endpoints. The following chart shows more details. Using status codes instead of throwing exceptions doesn't have much benefit on the usual web API, but throwing exceptions increases development speed. There is some best practice regarding the exceptions that are explained in another document.
 
 <img src=".\Docs\ColumnChart_API_Call.svg" alt="ColumnChart_API_Call" style="zoom:150%;" />
 
@@ -427,11 +428,11 @@ Exception handling includes two parts, the first is the structure of exceptions 
 
 ## Exception Structure
 
-In this project for the exception, the following structure is suggested that is derived from the Exception class. Other types of exceptions should derive the CustomeException and every exception has its own usage. The properties are a suggestion and always based on the domain, it is possible to add other properties or remove some of them.
+In this project for the exception, the following structure is suggested that is derived from the Exception class. Other types of exceptions should derive the `CustomeException` and every exception has its own usage. The properties are a suggestion and always based on the domain, it is possible to add other properties or remove some of them.
 
-- **ErrorCode**: This property is an Enum that indicates a summary of error by using some words or numbers. It is like a dictionary that helps to expose the reason for exceptions to clients. For example, when the request is to update a user who does not exist, a CustomNotFoundException will throw and the ErrorCode property will be USER_NOT_FOUND. In the web API application the response HttpStatusCode would be 404 and this property will expose to the client that says the user is not found. So, the client will recognize the exact error and if it is the front-end project, by using this property they will able to show the correct message in every language to the end user (HttpStatusCode does not specify the exact problem. The exception's message is always in English and is not a reference to show a correct message in another language). This approach specifies the exact error.
+- **ErrorCode**:  This property is an `Enum` that indicates a summary of error by using some words or numbers. It is like a dictionary that helps to expose the reason for exceptions to clients. For example, when the request is to update a user who does not exist, a `CustomNotFoundException` will throw and the `ErrorCode` property will be USER_NOT_FOUND. In the web API application scenario, the response `HttpStatusCode` would be 404, and this property will be exposed to the client that says the user is not found. So, the client will recognize the exact error (uses it as an If condition) and if it is the front-end project, by using this property they will able to show the correct message to the end user in every language  (`HttpStatusCode` does not specify the exact problem. Also, the exception's message is always in English and is not a reference to use it as an If condition). This approach specifies the exact error.
 - **TechnicalMessage**: This property is used to log more technical details. For example, when the request is for updating a user and the user does not exist, the data such as a UserId can be saved as a technical message.
-- **Severity**: This property is Enum which indicates the severity of the exception it is the same as the log level in the logger and is used to make a different severity between different exceptions. For example, in case of a request to fetch a user who does not exist, a CustomNotFoundException would throw and the response HttpStatusCode is 404 and the ErrorCode is USER_NOT_FOUND and this property will be Info to says the exception was not critical.
+- **Severity**: This property is `Enum` which indicates the severity of the exception it is the same as the log level in the logger and is used to make a different severity between different exceptions. For example, in case of a request to fetch a user who does not exist, a `CustomNotFoundException` would throw and the response `HttpStatusCode` is 404 and the `ErrorCode` is USER_NOT_FOUND and this property will be Info to says the exception was not critical.
 - **LogStackTrace**: This property shows whether it is needed to collect the exception's stack trace collection in the logger or not. For example, in the case of a request to fetch a user who does not exist, probably it is not needed to collect the stack trace collection when the application is logging the exception.
 - **Message**: It is the default property for Exception that explain more details about the error to the client.
 
@@ -440,7 +441,7 @@ public class CustomException : Exception
 {
     /// <summary>
     ///     Error code that indicates a summary of error by using some words or numbers.
-    ///		Ex: Its value can be USER_NOT_FOUND when the user is not found in the applicaiton.
+    ///     Ex: Its value can be USER_NOT_FOUND when the user is not found in the applicaiton.
     /// </summary>
     public ErrorCodeEnum? ErrorCode { get; protected set; }
 
@@ -468,31 +469,40 @@ public class CustomException : Exception
 
 ## Catch Exceptions
 
-In this section, the focus is on .Net web API applications. When an exception throws in a .Net web API application, it is possible to catch them in different areas (ex: In .Net 5 above by using the UseExceptionHandler extension or IExceptionFilter or middleware). In this article, middleware has been used. When an exception occurs in the application, the suggested action result will be such as the following object and response HttpStatusCode will be 4xx or 5xx. HttpStatusCode in the range of 4xx shows the exception is because of user behavior (client-side) and 5xx shows it has occurred because of system defects (server-side).
+In this section, the focus is on .Net web API applications. When an exception throws in a .Net web API application, it is possible to catch them in different places (ex: In .Net 5 above by using the `UseExceptionHandler` extension or `IExceptionFilter` or middleware). In this article, middleware has been used. When an exception occurs in the application, the suggested action result will be such as the following object and response `HttpStatusCode` will be 4xx or 5xx. `HttpStatusCode` in the range of 4xx shows the exception is because of user behavior (client-side) and 5xx shows it has occurred because of system defects (server-side). So, if the `HttpStatusCode` is in the range of 4xx or 5xx, the expected response is the following object. 
 
-- **ErrorCode**: This property directly comes from Exception.ErrorCode (it has been discussed in the previous sections)
-- **Message**: This property directly comes from Exception.Message (it has been discussed in the previous sections)
+- **ErrorCode**: This property directly comes from `Exception.ErrorCode` (it has been discussed in the previous sections)
+- **Message**: This property directly comes from `Exception.Message` (it has been discussed in the previous sections)
 - **Details**: Depending on the environment, this property shows more details about the stack trace and technical messages. Always in production is empty but in other environments shows details.
 - **TraceId**: This property is a unique key that enables tracking the request within the entire system.
 
+```json
+{
+  "ErrorCode": "USER_NOT_FOUND",
+  "Message": "Deep exception message",
+  "Details": "Details according to the environment.",
+  "TraceId": "12c61b62-f704-4d2e-9deb-c465a639ef92"
+}
+```
+
 ```c#
 /// <summary>
-/// Api error result details.
+/// 	Api error result details.
 /// </summary>
 public class ErrorInfo
 {
     /// <summary>
-    /// Error code.
+    /// 	Error code.
     /// </summary>
     public string ErrorCode { get; set; }
 
     /// <summary>
-    /// Error message.
+    /// 	Error message.
     /// </summary>
     public string Message { get; set; }
 
     /// <summary>
-    /// Error details.
+    /// 	Error details.
     /// </summary>
     public string Details { get; set; }
 
@@ -503,11 +513,11 @@ public class ErrorInfo
 }
 ```
 
-The following method is used to define the response HttpStatusCode. By adding the new exception, this function should extend to return a proper status code for the new exception.
+The following method is used to assign the response `HttpStatusCode`. By adding the new exception, this function should be extended to return a proper status code for the new exception.
 
 ```C#
     /// <summary>
-    /// Get HttpStatusCode by using exception type.
+    /// 	Get HttpStatusCode by using exception type.
     /// </summary>
     /// <param name="exception"></param>
     /// <returns></returns>
