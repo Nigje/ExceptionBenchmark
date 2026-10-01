@@ -4,6 +4,25 @@ An *exception* is an event that disrupts the normal flow of a program's executio
 
 This repository explores the performance cost of exceptions in C# through various benchmarks, comparing returning an error code with throwing and catching an exception across different stack depths. It concludes with a scalable architectural pattern for exception handling in .NET applications.
 
+## Executive Summary (TL;DR)
+If you are short on time, here are the key takeaways from the benchmarks and architectural analysis:
+
+1. **`try/catch` Blocks are Virtually Free:** 
+   Because modern .NET uses a table-based exception handling mechanism, simply wrapping code in a `try/catch` block costs zero CPU instructions unless an exception is actually thrown. The benchmark confirms this adds negligible overhead (< 1 nanosecond).
+   
+2. **Throwing is Expensive:** 
+   Throwing an exception requires the runtime to allocate an object, capture the thread state, and walk up the call stack to find a handler. This makes throwing an exception significantly slower (microseconds) than returning a simple status code (nanoseconds).
+   
+3. **The `StackTrace` is the Bottleneck:** 
+   The most expensive part of throwing an exception is the CLR asking the operating system to build the stack trace string. The deeper the call stack, the more expensive the exception becomes. At a stack depth of 1024, reading the `StackTrace` is 3.4x slower than just reading the exception `Message`.
+   
+4. **Do Not Prematurely Optimize Web APIs:** 
+   In a real-world ASP.NET Core Web API, network latency, database I/O, and JSON serialization dominate the request lifecycle (taking milliseconds). The overhead of an exception (taking microseconds) is completely dwarfed by these factors. Refactoring a Web API to use status codes everywhere just to save 40 microseconds is a classic case of premature optimization. 
+   
+**The Architectural Verdict:** For highly repetitive, expected validation failures, returning a `Result` object is preferred. However, for true domain failures (e.g., `UserNotFound`), do not contort your controllers to avoid exceptions. Instead, use a **centralized Middleware + Custom Exception architecture** to keep your code clean, maintainable, and aligned with enterprise best practices.
+
+---
+
 ## 1. Historical Context: Naive vs. Rare Exceptions
 
 Before diving into the custom benchmark, it is worth understanding the historical context of exception performance.
